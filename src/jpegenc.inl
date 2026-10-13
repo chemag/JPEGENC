@@ -62,6 +62,13 @@ const uint32_t ulMagnitudeFix[2048] PROGMEM = {
     0x0127000a, 0x0128000a, 0x0129000a, 0x012a000a, 0x012b000a, 0x012c000a, 0x012d000a, 0x012e000a,
     0x012f000a, 0x0130000a, 0x0131000a, 0x0132000a, 0x0133000a, 0x0134000a, 0x0135000a, 0x0136000a,
     0x0137000a, 0x0138000a, 0x0139000a, 0x013a000a, 0x013b000a, 0x013c000a, 0x013d000a, 0x013e000a,
+#define JPEGE_IS_RGB565(pixel_type) \
+    ((pixel_type) == JPEGE_PIXEL_RGB565_LE || (pixel_type) == JPEGE_PIXEL_RGB565_BE)
+#define JPEGE_READ_RGB565(pixel, pixel_type) \
+    ((uint16_t)((pixel_type) == JPEGE_PIXEL_RGB565_BE \
+        ? ((uint16_t)(pixel)[0] << 8) | (uint16_t)(pixel)[1] \
+        : (uint16_t)(pixel)[0] | ((uint16_t)(pixel)[1] << 8)))
+
     0x013f000a, 0x0140000a, 0x0141000a, 0x0142000a, 0x0143000a, 0x0144000a, 0x0145000a, 0x0146000a,
     0x0147000a, 0x0148000a, 0x0149000a, 0x014a000a, 0x014b000a, 0x014c000a, 0x014d000a, 0x014e000a,
     0x014f000a, 0x0150000a, 0x0151000a, 0x0152000a, 0x0153000a, 0x0154000a, 0x0155000a, 0x0156000a,
@@ -1316,11 +1323,10 @@ void JPEGSubSample24(unsigned char *pSrc, signed char *pLUM, signed char *pCb, s
     } // for y
     
 } /* JPEGSubSample24() */
-void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, signed char *pCr, int lsize, int cx, int cy)
+void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, signed char *pCr, int lsize, int cx, int cy, uint8_t ucPixelType)
 {
     int x, y;
     unsigned short us;
-    unsigned short *pUS = (unsigned short *)pSrc;
     unsigned char cRed, cGreen, cBlue;
     int iY1, iY2, iY3, iY4, iCr1, iCr2, iCr3, iCr4, iCb1, iCb2, iCb3, iCb4;
     
@@ -1331,7 +1337,7 @@ void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, s
     {
         for (x=0; x<cx; x++) // do 8x8 pixels in 2x2 blocks
         {
-            us = pUS[0];
+            us = JPEGE_READ_RGB565(pSrc, ucPixelType);
             cBlue = (unsigned char)(((us & 0x1f)<<3) | (us & 7));
             cGreen = (unsigned char)(((us & 0x7e0)>>3) | ((us & 0x60)>>5));
             cRed = (unsigned char)(((us & 0xf800)>>8) | ((us & 0x3800)>>11));
@@ -1339,7 +1345,7 @@ void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, s
             iCb1 = (cBlue << 11) + (cRed * -691) + (cGreen * -1357);
             iCr1 = (cRed << 11) + (cGreen * -1715) + (cBlue * -333);
             
-            us = pUS[1];
+            us = JPEGE_READ_RGB565(pSrc + 2, ucPixelType);
             cBlue = (unsigned char)(((us & 0x1f)<<3) | (us & 7));
             cGreen = (unsigned char)(((us & 0x7e0)>>3) | ((us & 0x60)>>5));
             cRed = (unsigned char)(((us & 0xf800)>>8) | ((us & 0x3800)>>11));
@@ -1347,7 +1353,7 @@ void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, s
             iCb2 = (cBlue << 11) + (cRed * -691) + (cGreen * -1357);
             iCr2 = (cRed << 11) + (cGreen * -1715) + (cBlue * -333);
             
-            us = pUS[lsize>>1];
+            us = JPEGE_READ_RGB565(pSrc + lsize, ucPixelType);
             cBlue = (unsigned char)(((us & 0x1f)<<3) | (us & 7));
             cGreen = (unsigned char)(((us & 0x7e0)>>3) | ((us & 0x60)>>5));
             cRed = (unsigned char)(((us & 0xf800)>>8) | ((us & 0x3800)>>11));
@@ -1355,7 +1361,7 @@ void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, s
             iCb3 = (cBlue << 11) + (cRed * -691) + (cGreen * -1357);
             iCr3 = (cRed << 11) + (cGreen * -1715) + (cBlue * -333);
             
-            us = pUS[(lsize>>1)+1];
+            us = JPEGE_READ_RGB565(pSrc + lsize + 2, ucPixelType);
             cBlue = (unsigned char)(((us & 0x1f)<<3) | (us & 7));
             cGreen = (unsigned char)(((us & 0x7e0)>>3) | ((us & 0x60)>>5));
             cRed = (unsigned char)(((us & 0xf800)>>8) | ((us & 0x3800)>>11));
@@ -1377,12 +1383,12 @@ void JPEGSubSample16(unsigned char *pSrc, signed char *pLUM, signed char *pCb, s
             pCb[0] = (signed char)iCb1;
             pCr++;
             pCb++;
-            pUS += 2; // skip 2 pixels to right
+            pSrc += 4; // skip 2 pixels to right
         } // for x
         pCr += 8 - cx; // skip to next row;
         pCb += 8 - cx;
         pLUM += 8 + (4-cx)*2; // skip down a row since 2 at a time
-        pUS += lsize - cx*2; // skip 2 lines
+        pSrc += (lsize * 2) - (cx * 4); // skip 2 lines
     } // for y
     
 } /* JPEGSubSample16() */
@@ -1556,7 +1562,7 @@ void JPEGGetMCU22(unsigned char *pImage, JPEGE_IMAGE *pPage, int iPitch)
 {
     int cx, cy, width, height;
     signed char *pMCUData = pPage->MCUc;
-//    if (pPage->ucPixelType == JPEGE_PIXEL_RGB565)
+//    if (JPEGE_IS_RGB565(pPage->ucPixelType))
 //        pSrc = pImage + x*16*2 + (y * 16 * lsize);
 //    else if (pPage->ucPixelType == JPEGE_PIXEL_RGB888)
 //        pSrc = pImage + x*16*3 + (y * 16 * lsize);
@@ -1585,20 +1591,20 @@ void JPEGGetMCU22(unsigned char *pImage, JPEGE_IMAGE *pPage, int iPitch)
     {
         JPEGSubSampleYUV422(pImage, pMCUData, iPitch);
     }
-    else if (pPage->ucPixelType == JPEGE_PIXEL_RGB565)
+    else if (JPEGE_IS_RGB565(pPage->ucPixelType))
     {
         // upper left
-        JPEGSubSample16(pImage, pMCUData, &pMCUData[DCTSIZE*4], &pMCUData[DCTSIZE*5], iPitch, cx, cy);
+        JPEGSubSample16(pImage, pMCUData, &pMCUData[DCTSIZE*4], &pMCUData[DCTSIZE*5], iPitch, cx, cy, pPage->ucPixelType);
         // upper right
         if (width > 8)
-            JPEGSubSample16(pImage+8*2, &pMCUData[DCTSIZE*1], &pMCUData[4+DCTSIZE*4], &pMCUData[4+DCTSIZE*5], iPitch, width-8, cy);
+            JPEGSubSample16(pImage+8*2, &pMCUData[DCTSIZE*1], &pMCUData[4+DCTSIZE*4], &pMCUData[4+DCTSIZE*5], iPitch, width-8, cy, pPage->ucPixelType);
         if (height > 8)
         {
             // lower left
-            JPEGSubSample16(pImage+8*iPitch, &pMCUData[DCTSIZE*2], &pMCUData[32+DCTSIZE*4], &pMCUData[32+DCTSIZE*5], iPitch, cx, height - 8);
+            JPEGSubSample16(pImage+8*iPitch, &pMCUData[DCTSIZE*2], &pMCUData[32+DCTSIZE*4], &pMCUData[32+DCTSIZE*5], iPitch, cx, height - 8, pPage->ucPixelType);
             // lower right
             if (width > 8)
-                JPEGSubSample16(pImage+8*iPitch + 8*2, &pMCUData[DCTSIZE*3], &pMCUData[36+DCTSIZE*4], &pMCUData[36+DCTSIZE*5], iPitch, width - 8, height - 8);
+                JPEGSubSample16(pImage+8*iPitch + 8*2, &pMCUData[DCTSIZE*3], &pMCUData[36+DCTSIZE*4], &pMCUData[36+DCTSIZE*5], iPitch, width - 8, height - 8, pPage->ucPixelType);
         }
     }
     else if (pPage->ucPixelType == JPEGE_PIXEL_RGB888)
@@ -1642,11 +1648,10 @@ void JPEGGetMCU22(unsigned char *pImage, JPEGE_IMAGE *pPage, int iPitch)
  *  PURPOSE    : Sample a 8x8 color block                                   *
  *                                                                          *
  ****************************************************************************/
-void JPEGSample16(unsigned char *pSrc, signed char *pMCU, int lsize, int cx, int cy)
+void JPEGSample16(unsigned char *pSrc, signed char *pMCU, int lsize, int cx, int cy, uint8_t ucPixelType)
 {
     int x, y;
     unsigned short us;
-    unsigned short *pUS = (unsigned short *)pSrc;
     unsigned char cRed, cGreen, cBlue;
     int iY, iCr, iCb;
     
@@ -1654,7 +1659,8 @@ void JPEGSample16(unsigned char *pSrc, signed char *pMCU, int lsize, int cx, int
     {
         for (x=0; x<cx; x++) // do 8x8 pixels
         {
-            us = *pUS++;
+            us = JPEGE_READ_RGB565(pSrc, ucPixelType);
+            pSrc += 2;
             cBlue = (unsigned char)(((us & 0x1f)<<3) | (us & 7));
             cGreen = (unsigned char)(((us & 0x7e0)>>3) | ((us & 0x60)>>5));
             cRed = (unsigned char)(((us & 0xf800)>>8) | ((us & 0x3800)>>11));
@@ -1668,7 +1674,7 @@ void JPEGSample16(unsigned char *pSrc, signed char *pMCU, int lsize, int cx, int
             *pMCU++ = (signed char)iY;
         } // for x
         pMCU += 8 - cx;
-        pUS += (lsize>>1) - cx;
+        pSrc += lsize - (cx * 2);
     } // for y
     
 } /* JPEGSample16() */
@@ -1725,8 +1731,8 @@ void JPEGGetMCU11(unsigned char *pImage, JPEGE_IMAGE *pPage, int iPitch)
 //        memset(pMCUData, 0, 3*64*sizeof(short)); // make sure unused pixels are 0
     if (pPage->ucPixelType == JPEGE_PIXEL_RGB888)
         JPEGSample24(pImage, pMCUData, iPitch, cx, cy);
-    else if (pPage->ucPixelType == JPEGE_PIXEL_RGB565)
-        JPEGSample16(pImage, pMCUData, iPitch, cx, cy);
+    else if (JPEGE_IS_RGB565(pPage->ucPixelType))
+        JPEGSample16(pImage, pMCUData, iPitch, cx, cy, pPage->ucPixelType);
     else // must be 32-bpp
         JPEGSample32(pImage, pMCUData, iPitch, cx, cy);
     
@@ -1747,8 +1753,8 @@ static void JPEGGetRGBYCbCr(const uint8_t *pPixel, uint8_t ucPixelType, int *pY,
     unsigned char cRed, cGreen, cBlue;
     unsigned short us;
 
-    if (ucPixelType == JPEGE_PIXEL_RGB565) {
-        memcpy(&us, pPixel, sizeof(us));
+    if (JPEGE_IS_RGB565(ucPixelType)) {
+        us = JPEGE_READ_RGB565(pPixel, ucPixelType);
         cBlue = (unsigned char)(((us & 0x1f)<<3) | (us & 7));
         cGreen = (unsigned char)(((us & 0x7e0)>>3) | ((us & 0x60)>>5));
         cRed = (unsigned char)(((us & 0xf800)>>8) | ((us & 0x3800)>>11));
@@ -1805,7 +1811,7 @@ void JPEGLoadEdgeMCU(const uint8_t *pImage, JPEGE_IMAGE *pPage, int iPitch, int 
     }
 
     if (pPage->ucSubSample == JPEGE_SUBSAMPLE_444) {
-        if (pPage->ucPixelType == JPEGE_PIXEL_RGB565)
+        if (JPEGE_IS_RGB565(pPage->ucPixelType))
             bytes_per_pixel = 2;
         else if (pPage->ucPixelType == JPEGE_PIXEL_RGB888)
             bytes_per_pixel = 3;
@@ -1829,7 +1835,7 @@ void JPEGLoadEdgeMCU(const uint8_t *pImage, JPEGE_IMAGE *pPage, int iPitch, int 
         return;
     }
 
-    if (pPage->ucPixelType == JPEGE_PIXEL_RGB565)
+    if (JPEGE_IS_RGB565(pPage->ucPixelType))
         bytes_per_pixel = 2;
     else if (pPage->ucPixelType == JPEGE_PIXEL_RGB888)
         bytes_per_pixel = 3;
@@ -2200,7 +2206,8 @@ int iBPMCU;
     switch (pJPEG->ucPixelType) {
         case JPEGE_PIXEL_GRAYSCALE:
            break; // 1 byte per pixel
-        case JPEGE_PIXEL_RGB565:
+        case JPEGE_PIXEL_RGB565_LE:
+        case JPEGE_PIXEL_RGB565_BE:
            iBPMCU *= 2;
            break;
         case JPEGE_PIXEL_RGB888:
