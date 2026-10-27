@@ -800,7 +800,8 @@ void JPEGMakeHuffE(JPEGE_IMAGE *pJPEG)
 //
 int JPEGEncodeEnd(JPEGE_IMAGE *pJPEG)
 {
-    if (pJPEG->iError == JPEGE_SUCCESS)
+    // pc.pOut stays NULL until EncodeBegin() succeeds; there is no image to finish
+    if (pJPEG->iError == JPEGE_SUCCESS && pJPEG->pc.pOut != NULL)
     {
         if (pJPEG->pOutput == NULL) { // file I/O
             int iLen;
