@@ -62,12 +62,19 @@ unsigned char *pOut; // current output pointer
 int64_t iLen;  // length of data in accumulator
 uint64_t ulAcc; // code accumulator (holds codes until at least 64-bits ready to write
 } PIL_CODE;
+// Store 8 code bytes, most significant first, at any alignment. The output
+// pointer advances by stuffed byte counts, so it is rarely 8-byte aligned.
+static inline void jpege_write_be64(uint8_t *p, uint64_t u64)
+{
+    u64 = __builtin_bswap64(u64);
+    memcpy(p, &u64, sizeof(u64));
+}
 #define STORECODE(pOut, iLen, ulCode, ulAcc, iNewLen) \
         if (iLen+iNewLen > 64) \
                                                 { uint64_t ul1, ul2 = ulAcc | (ulCode >> (iLen+iNewLen-64)); \
         ul1 = ul2 & (ul2 >> 4); ul1 &= (ul1 >> 2); ul1 &= (ul1 >> 1);  ul1 &= 0x0101010101010101; \
     if (ul1 == 0) \
-        {*(uint64_t *)pOut = __builtin_bswap64(ul2); pOut += 8; \
+        {jpege_write_be64(pOut, ul2); pOut += 8; \
      iLen -= 64; ulAcc = 0;} else \
         {while (iLen >= 8) \
             {unsigned char c = (unsigned char)(ulAcc >> 56); *pOut++ = c; \

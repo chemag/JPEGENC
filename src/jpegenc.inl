@@ -1251,8 +1251,15 @@ void JPEGGetMCU(unsigned char *pSrc, int iPitch, signed char *pMCU)
     int cy;
     
     for (cy = 0; cy < 8; cy++) {
-        *(uint32_t *)pMCU = *(uint32_t *)pSrc ^ 0x80808080;
-        *(uint32_t *)&pMCU[4] = *(uint32_t *)&pSrc[4] ^ 0x80808080;
+        uint32_t u32;
+
+        // the caller's pixels have no alignment guarantee
+        memcpy(&u32, pSrc, sizeof(u32));
+        u32 ^= 0x80808080;
+        memcpy(pMCU, &u32, sizeof(u32));
+        memcpy(&u32, &pSrc[4], sizeof(u32));
+        u32 ^= 0x80808080;
+        memcpy(&pMCU[4], &u32, sizeof(u32));
         pMCU += 8;
         pSrc += iPitch; // - 8; // skip to next line
     }
@@ -1502,7 +1509,7 @@ uint8_t *pY0, *pY1, *pY2, *pY3;
 uint8_t *pCr, *pCb;
 uint8_t *s = pImage;
 int iCr, iCb;
-uint32_t *pU32;
+uint8_t *pU8;
 
   // output bins for YCbCr 
     pY0 = (uint8_t *)pMCUData; pY1 = (uint8_t *)&pMCUData[64*1];
@@ -1550,11 +1557,10 @@ uint32_t *pU32;
         pY0 += 8; pY1 += 8; pY2 += 8; pY3 += 8;
         s += (iPitch*2) - 16;
     } // for y
-    pU32 = (uint32_t *)pMCUData;
+    pU8 = (uint8_t *)pMCUData;
     // all of the YUV values need to be adjusted +/-128, so XOR with 0x80
-    for (x = 0; x<(6*16);x++) {
-        pU32[0] ^= 0x80808080;
-        pU32++;
+    for (x = 0; x<(6*DCTSIZE);x++) {
+        pU8[x] ^= 0x80;
     }
 } /* JPEGSubSampleYUV422() */
 
