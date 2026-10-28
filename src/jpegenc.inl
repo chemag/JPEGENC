@@ -894,7 +894,10 @@ int JPEGENC_EncodeBegin(JPEGE_IMAGE *pJPEG, JPEGENCODE *pEncode, int iWidth, int
     if (ucPixelType >= JPEGE_PIXEL_COUNT || (ucSubSample != JPEGE_SUBSAMPLE_444 && ucSubSample != JPEGE_SUBSAMPLE_420) || ucQFactor > JPEGE_Q_LOW) {
         return JPEGE_INVALID_PARAMETER;
     }
-    if ((ucPixelType == JPEGE_PIXEL_YUV420P || ucPixelType == JPEGE_PIXEL_NV12) &&
+    // Planar YUV420 and NV12 are already 4:2:0, and the packed YUV422 loaders
+    // only produce 4:2:0: the 4:4:4 paths would read YUYV pairs as RGB pixels.
+    if ((ucPixelType == JPEGE_PIXEL_YUV420P || ucPixelType == JPEGE_PIXEL_NV12 ||
+         ucPixelType == JPEGE_PIXEL_YUV422) &&
         ucSubSample != JPEGE_SUBSAMPLE_420) {
         return JPEGE_INVALID_PARAMETER;
     }
