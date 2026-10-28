@@ -23,12 +23,19 @@
 #if JPEGE_REGISTER_WIDTH == 64
 typedef int64_t jpege_bigint_t;
 typedef uint64_t jpege_biguint_t;
+// Store 8 code bytes, most significant first, at any alignment. The output
+// pointer advances by stuffed byte counts, so it is rarely 8-byte aligned.
+static inline void jpege_write_be64(uint8_t *p, uint64_t u64)
+{
+    u64 = __builtin_bswap64(u64);
+    memcpy(p, &u64, sizeof(u64));
+}
 #define JPEGE_STORE_CODE(pOut, iLen, ulCode, ulAcc, iNewLen) \
         if (iLen+iNewLen > 64) \
                                                 { uint64_t ul1, ul2 = ulAcc | (ulCode >> (iLen+iNewLen-64)); \
         ul1 = ul2 & (ul2 >> 4); ul1 &= (ul1 >> 2); ul1 &= (ul1 >> 1);  ul1 &= 0x0101010101010101; \
     if (ul1 == 0) \
-        {*(uint64_t *)pOut = __builtin_bswap64(ul2); pOut += 8; \
+        {jpege_write_be64(pOut, ul2); pOut += 8; \
      iLen -= 64; ulAcc = 0;} else \
         {while (iLen >= 8) \
             {unsigned char c = (unsigned char)(ulAcc >> 56); *pOut++ = c; \
@@ -1290,8 +1297,15 @@ static void JPEGGetMCU(unsigned char *pSrc, int iPitch, signed char *pMCU)
     int cy;
     
     for (cy = 0; cy < 8; cy++) {
-        *(uint32_t *)pMCU = *(uint32_t *)pSrc ^ 0x80808080;
-        *(uint32_t *)&pMCU[4] = *(uint32_t *)&pSrc[4] ^ 0x80808080;
+        uint32_t u32;
+
+        // the caller's pixels have no alignment guarantee
+        memcpy(&u32, pSrc, sizeof(u32));
+        u32 ^= 0x80808080;
+        memcpy(pMCU, &u32, sizeof(u32));
+        memcpy(&u32, &pSrc[4], sizeof(u32));
+        u32 ^= 0x80808080;
+        memcpy(&pMCU[4], &u32, sizeof(u32));
         pMCU += 8;
         pSrc += iPitch; // - 8; // skip to next line
     }
@@ -1541,7 +1555,7 @@ uint8_t *pY0, *pY1, *pY2, *pY3;
 uint8_t *pCr, *pCb;
 uint8_t *s = pImage;
 int iCr, iCb;
-uint32_t *pU32;
+uint8_t *pU8;
 
   // output bins for YCbCr 
     pY0 = (uint8_t *)pMCUData; pY1 = (uint8_t *)&pMCUData[64*1];
@@ -1589,11 +1603,10 @@ uint32_t *pU32;
         pY0 += 8; pY1 += 8; pY2 += 8; pY3 += 8;
         s += (iPitch*2) - 16;
     } // for y
-    pU32 = (uint32_t *)pMCUData;
+    pU8 = (uint8_t *)pMCUData;
     // all of the YUV values need to be adjusted +/-128, so XOR with 0x80
-    for (x = 0; x<(6*16);x++) {
-        pU32[0] ^= 0x80808080;
-        pU32++;
+    for (x = 0; x<(6*JPEGE_DCT_SIZE);x++) {
+        pU8[x] ^= 0x80;
     }
 } /* JPEGSubSampleYUV422() */
 
