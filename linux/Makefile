@@ -29,6 +29,9 @@ unaligned_test: unaligned_test.o jpegenc_core_align.o
 yuv422_subsample_test: yuv422_subsample_test.o jpegenc_core_asan.o
 	$(CC) $(ASAN_FLAGS) yuv422_subsample_test.o jpegenc_core_asan.o $(LIBS) -o yuv422_subsample_test
 
+close_without_begin_test: close_without_begin_test.o jpegenc_core_asan.o
+	$(CC) $(ASAN_FLAGS) close_without_begin_test.o jpegenc_core_asan.o $(LIBS) -o close_without_begin_test
+
 main.o: main.cpp
 	$(CXX) $(CFLAGS) -c main.cpp
 
@@ -53,6 +56,9 @@ unaligned_test.o: unaligned_test.c
 yuv422_subsample_test.o: yuv422_subsample_test.c
 	$(CC) $(CFLAGS) $(ASAN_FLAGS) -c yuv422_subsample_test.c
 
+close_without_begin_test.o: close_without_begin_test.c
+	$(CC) $(CFLAGS) $(ASAN_FLAGS) -c close_without_begin_test.c
+
 JPEGENC.o: ../src/JPEGENC.cpp ../src/JPEGENC.h
 	$(CXX) $(CFLAGS) -c ../src/JPEGENC.cpp
 
@@ -65,7 +71,7 @@ jpegenc_core_asan.o: ../src/jpegenc.c ../src/jpegenc.inl ../src/JPEGENC.h
 jpegenc_core_align.o: ../src/jpegenc.c ../src/jpegenc.inl ../src/JPEGENC.h
 	$(CC) $(CFLAGS) $(ALIGN_FLAGS) -c ../src/jpegenc.c -o jpegenc_core_align.o
 
-test: jpegenc c_api_test edge_mcu_test rgb565_endian_test yuv420p_test nv12_test unaligned_test yuv422_subsample_test
+test: jpegenc c_api_test edge_mcu_test rgb565_endian_test yuv420p_test nv12_test unaligned_test yuv422_subsample_test close_without_begin_test
 	./c_api_test
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./edge_mcu_test
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./rgb565_endian_test
@@ -73,8 +79,9 @@ test: jpegenc c_api_test edge_mcu_test rgb565_endian_test yuv420p_test nv12_test
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./nv12_test
 	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./unaligned_test
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./yuv422_subsample_test
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./close_without_begin_test
 	./jpegenc cxx_api_test.jpg
 	test -s cxx_api_test.jpg
 
 clean:
-	rm -rf *.o jpegenc c_api_test edge_mcu_test rgb565_endian_test yuv420p_test nv12_test unaligned_test yuv422_subsample_test cxx_api_test.jpg
+	rm -rf *.o jpegenc c_api_test edge_mcu_test rgb565_endian_test yuv420p_test nv12_test unaligned_test yuv422_subsample_test close_without_begin_test cxx_api_test.jpg
