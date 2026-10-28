@@ -40,3 +40,11 @@ Documentation:<br>
 Detailed information about the API is in the Wiki<br>
 See the examples folder for easy starting points<br>
 <br>
+
+Fuzzing:
+--------
+Optional, host-only libFuzzer targets are documented in
+[fuzz/README.md](fuzz/README.md).
+They require an explicit `BUILD_CLANG_FUZZER=ON` build and are not part of the
+normal Arduino or Linux builds.
+
