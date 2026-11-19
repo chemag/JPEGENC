@@ -26,6 +26,7 @@ TESTS += c_api_test
 TESTS += edge_mcu_test
 TESTS += yuv420p_test
 TESTS += nv12_test
+TESTS += rgb565_endian_test
 
 jpegenc_test_core.o: jpegenc_test_core.c ../src/JPEGENC.h ../src/jpegenc.inl
 	$(TEST_CC) $(TEST_CFLAGS) -c jpegenc_test_core.c -o $@
